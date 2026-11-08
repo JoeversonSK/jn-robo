@@ -25,13 +25,15 @@ class FakeHTTP:
     def get(self, url, params=None, timeout=None):
         self.chamadas.append(("GET", url, params))
         if url.endswith("/me/accounts"):
-            return Resp({"data": [{"id": "PG", "instagram_business_account": {"id": "999"}}]})
+            return Resp({"data": [{"id": "PG", "access_token": "PAGETOK", "instagram_business_account": {"id": "999"}}]})
         if url.endswith("/me"):
             return Resp({"user_id": "999", "username": "jn_.higienizacao"})
         return Resp({"status_code": "FINISHED"})
 
     def post(self, url, data=None, timeout=None):
         self.chamadas.append(("POST", url, data))
+        if "/PG/" in url:
+            return Resp({"id": "FB_" + url.rsplit("/", 1)[1], "post_id": "PG_POST"})
         if url.endswith("media_publish"):
             if self.falhar:
                 return Resp({"error": {"message": "Token inválido"}}, 400)
@@ -193,3 +195,35 @@ def test_raiz_dos_dados_vem_do_ambiente(tmp_path, monkeypatch):
     assert f.RAIZ == tmp_path.resolve() and f.CONTEUDO == tmp_path.resolve() / "conteudo"
     monkeypatch.delenv("JN_DADOS")
     importlib.reload(f)
+
+
+def test_tambem_publica_no_facebook(raiz, monkeypatch):
+    from jn import facebook
+    criar(raiz, "foto")
+    criar(raiz, "car", tipo="carrossel", arquivos=("01.jpg", "02.jpg"))
+    criar(raiz, "st", tipo="story")
+    fake = FakeHTTP()
+    usar_fake(monkeypatch, fake)
+    orig = facebook.Facebook.__init__
+    monkeypatch.setattr(facebook.Facebook, "__init__", lambda self, t, sessao=None, page_id=None: orig(self, t, fake, page_id))
+    publicar.main([])
+    fb = [c for c in fake.chamadas if c[0] == "POST" and "/PG/" in c[1]]
+    assert any(c[1].endswith("/PG/photos") and c[2]["published"] == "true" for c in fb)   # post
+    assert any(c[1].endswith("/PG/feed") and "attached_media[1]" in c[2] for c in fb)     # carrossel
+    assert all(c[2]["access_token"] == "PAGETOK" for c in fb)
+    d = json.loads((raiz / "publicado" / "foto" / "post.json").read_text())
+    assert d["facebook_id"] == "PG_POST"
+    st = json.loads((raiz / "publicado" / "st" / "post.json").read_text())
+    assert "facebook_id" not in st                                                         # story só no IG
+
+
+def test_falha_no_facebook_nao_afeta_instagram(raiz, monkeypatch):
+    from jn import facebook
+    criar(raiz, "foto")
+    usar_fake(monkeypatch, FakeHTTP())
+    def quebra(self, *a, **k):
+        raise facebook.ErroInstagram("Facebook: sem permissão")
+    monkeypatch.setattr(facebook.Facebook, "__init__", quebra)
+    assert publicar.main([]) == 0
+    d = json.loads((raiz / "publicado" / "foto" / "post.json").read_text())
+    assert d["media_id"] == "MEDIA123" and "sem permissão" in d["facebook_erro"]

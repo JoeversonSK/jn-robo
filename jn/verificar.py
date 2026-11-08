@@ -53,6 +53,12 @@ def main():
         sys.exit(f"Não funcionou com a configuração atual: {e}")
     print(f"OK! Conectado como @{perfil.get('username')} (ID {ig.ig_id}) via {ig.host}")
     print(f"Limite de publicação: {limite}")
+    from jn import facebook
+    try:
+        fb = facebook.Facebook(token)
+        print(f"Facebook: OK, publica na Página {fb.page_id} (token da Página obtido)")
+    except ErroInstagram as e:
+        print(f"Facebook: não disponível ({e})")
 
 
 if __name__ == "__main__":

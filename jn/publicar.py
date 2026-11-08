@@ -12,6 +12,7 @@ from datetime import datetime, timezone
 import requests
 
 from jn import fila, painel
+from jn import facebook
 from jn.instagram import ErroInstagram, Instagram
 
 
@@ -61,6 +62,7 @@ def main(argv=None) -> int:
 
     ig = Instagram(os.environ.get("IG_ACCESS_TOKEN", ""), os.environ.get("IG_USER_ID") or None)
     falhas = 0
+    fb = None
     for it in prontos:
         urls = [url_publica(it, a) for a in it.dados["arquivos"]]
         if not all(midia_no_ar(u) for u in urls):
@@ -82,6 +84,20 @@ def main(argv=None) -> int:
             publicado_em=datetime.now(timezone.utc).isoformat(timespec="seconds"),
         )
         it.dados.pop("ultimo_erro", None)
+        # Também na Página do Facebook (falha aqui não afeta o Instagram)
+        if facebook.ativo() and it.dados.get("facebook", True) and it.dados["tipo"] != "story":
+            try:
+                fb = fb or facebook.Facebook(os.environ.get("IG_ACCESS_TOKEN", ""))
+                d = it.dados
+                fb_id = facebook.publicar_no_facebook(
+                    fb, d["tipo"], [url_publica(it, a) for a in d["arquivos"]], d.get("legenda", ""),
+                    url_publica(it, d["capa"]) if d.get("capa") else None)
+                if fb_id:
+                    it.dados["facebook_id"] = fb_id
+                    print(f"    + Facebook: {fb_id}")
+            except (ErroInstagram, requests.RequestException) as e:
+                it.dados["facebook_erro"] = str(e)[:200]
+                print(f"    ! Facebook: {e}")
         it.salvar()
         fila.mover_para_publicado(it)
         print(f"  ✓ {it.nome} publicado (id {media_id})")
