@@ -227,3 +227,18 @@ def test_falha_no_facebook_nao_afeta_instagram(raiz, monkeypatch):
     assert publicar.main([]) == 0
     d = json.loads((raiz / "publicado" / "foto" / "post.json").read_text())
     assert d["media_id"] == "MEDIA123" and "sem permissão" in d["facebook_erro"]
+
+
+def test_story_manual_nunca_e_publicado_pelo_robo(raiz, monkeypatch, tmp_path):
+    from jn import midia
+    it = criar(raiz, "caixinha", tipo="story")
+    it.dados["manual"] = True
+    it.salvar()
+    assert fila.carregar()[0].status == "manual"
+    assert fila.prontos_para_publicar() == []
+    robo = tmp_path / "robo"; robo.mkdir()
+    midia.sincronizar(robo)
+    assert not (robo / "midia" / "caixinha").exists()        # mídia não vai para o público
+    it.dados["postado_manual"] = "2026-11-10T19:02:00-03:00"
+    it.salvar()
+    assert fila.carregar()[0].status == "publicado"

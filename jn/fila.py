@@ -8,7 +8,8 @@ Cada post é uma pasta dentro de `conteudo/` com um `post.json`:
   "legenda": "texto do post",
   "arquivos": ["arte.jpg"],          # na ordem; reel = [video.mp4] (+ "capa" opcional)
   "capa": "capa.jpg",                # opcional, só para reel
-  "aprovado": false                  # o dono muda para true para liberar
+  "aprovado": false,                 # o dono muda para true para liberar
+  "manual": true                     # opcional: story com sticker (caixinha/enquete) que o dono posta à mão
 }
 
 Depois de publicado, a pasta vai para `publicado/` com `media_id` e `publicado_em`.
@@ -50,7 +51,7 @@ class Item:
 
     @property
     def status(self) -> str:
-        if self.dados.get("media_id"):
+        if self.dados.get("media_id") or self.dados.get("postado_manual"):
             return "publicado"
         if self.dados.get("recusado"):
             return "recusado"
@@ -58,6 +59,10 @@ class Item:
             return "falhou"
         if not self.dados.get("aprovado"):
             return "aguardando aprovação"
+        if self.dados.get("manual"):
+            # stories com caixinha de perguntas/enquete: a API não coloca stickers,
+            # então o dono posta à mão pelo app do Instagram (o robô nunca publica)
+            return "manual"
         return "aprovado"
 
     def salvar(self):

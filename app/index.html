@@ -89,6 +89,8 @@ dialog::backdrop{background:rgba(11,22,80,.45)}
 .atalhos{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}.atalhos button{padding:9px 14px;border-radius:20px;background:#E6ECFD;color:var(--royal);font-weight:600;font-size:14px}.atalhos button[aria-pressed=true]{background:var(--royal);color:#fff}
 .folha ol{padding-left:20px;font-size:14.5px;color:var(--tinta)} .folha ol li{margin:6px 0}
 .folha a{color:var(--royal);font-weight:600}
+.aviso-manual{margin:0 14px 12px;padding:12px 14px;border-radius:var(--raio-p);background:#FFF6DB;color:#5A4500;font-size:14px;line-height:1.45}
+.aviso-manual b:first-child{display:block;margin-bottom:4px}
 .toast{position:fixed;left:50%;bottom:calc(96px + var(--safe-b));transform:translate(-50%,20px);opacity:0;background:var(--noite);color:#fff;padding:12px 18px;border-radius:14px;font-weight:600;font-size:14.5px;transition:.25s;z-index:20;max-width:90vw;text-align:center}
 .toast.on{opacity:1;transform:translate(-50%,0)}
 .carregando{padding:50px 0;text-align:center;color:var(--suave)}
@@ -243,9 +245,10 @@ async function carregarPasta(pasta){
 
 function estado(it){
   const d=it.dados;
-  if (it.pasta==="publicado" || d.media_id) return "publicado";
+  if (it.pasta==="publicado" || d.media_id || d.postado_manual) return "publicado";
   if (d.recusado) return "recusado";
   if (d.falhou) return "falhou";
+  if (d.aprovado && d.manual) return "manual";
   return d.aprovado ? "programado" : "pendente";
 }
 
@@ -290,12 +293,15 @@ function cartao(it){
   const erro = d.ultimo_erro && st!=="publicado" ? `<div class="aviso">Último erro ao publicar: ${esc(d.ultimo_erro)}</div>` : "";
   let rodape="";
   if (st==="pendente") rodape=`<div class="acoes"><button class="btn btn-nao" data-acao="recusar">Recusar</button><button class="btn btn-ok" data-acao="aprovar">Aprovar</button></div>`;
+  else if (st==="manual") rodape=`<div class="aviso-manual"><b>✋ Você posta este story</b>No horário, toque em <b>Compartilhar</b>, escolha o Instagram (Story) e coloque a <b>caixinha de perguntas</b> no espaço livre da arte. Depois toque em <b>Já postei</b>.</div>
+    <div class="acoes"><button class="btn btn-sec" data-acao="compartilhar">Compartilhar</button><button class="btn btn-ok" data-acao="postei">Já postei</button></div>
+    <div class="status"><button data-acao="desfazer">Voltar para aprovação</button></div>`;
   else if (st==="programado") rodape=`<div class="status ok">✓ Aprovado · sai ${falta(d.publicar_em)}<button data-acao="desfazer">Desfazer</button></div>`;
   else if (st==="recusado") rodape=`<div class="status nao">Recusado<button data-acao="desfazer">Desfazer</button></div>`;
   else if (st==="falhou") rodape=`<div class="status nao">Falhou ao publicar<button data-acao="tentar">Tentar de novo</button></div>`;
   else rodape=`<div class="status pub">Publicado no Instagram</div>`;
   return `<article class="post" data-nome="${it.nome}" data-pasta="${it.pasta}">
-    <div class="post-cab"><img class="selo" src="logo.png" alt="" aria-hidden="true"><div><b>jn_.higienizacao</b><span>Juazeiro do Norte</span></div><span class="tipo">${TIPOS[d.tipo]||d.tipo}</span></div>
+    <div class="post-cab"><img class="selo" src="logo.png" alt="" aria-hidden="true"><div><b>jn_.higienizacao</b><span>Juazeiro do Norte</span></div><span class="tipo">${TIPOS[d.tipo]||d.tipo}${d.manual?" · você posta":""}</span></div>
     <div class="midia ${story?"r-story":"r-feed"}">${midia}</div>${pontos}
     <div class="corpo">
       <button class="quando" data-acao="${st==="publicado"?"":"hora"}" ${st==="publicado"?"disabled":""}>${dia}, ${h}<small>${st==="publicado"?"":"mudar"}</small></button>
@@ -310,7 +316,7 @@ function desenhar(){
   const n=$("#n-pend"); n.hidden=!pend.length; n.textContent=pend.length;
   let vis;
   if (aba==="pendente") vis=pend;
-  else if (aba==="programado") vis=itens.filter(i=>["programado","recusado","falhou"].includes(estado(i)));
+  else if (aba==="programado") vis=itens.filter(i=>["programado","manual","recusado","falhou"].includes(estado(i)));
   else vis=itens.filter(i=>estado(i)==="publicado").reverse();
   vis.sort((a,b)=>aba==="publicado"?0:a.dados.publicar_em.localeCompare(b.dados.publicar_em));
   const vazio = {pendente:["Tudo aprovado","Quando tiver post novo, ele aparece aqui."],
@@ -344,7 +350,9 @@ async function agir(acao, art){
   if (acao==="hora"){
     const d=new Date(it.dados.publicar_em), l=new Date(d.getTime()-3*3600e3);
     $("#inp-hora").value=l.toISOString().slice(0,16); montarAtalhos(); $("#d-hora").showModal(); $("#d-hora")._it=it; return }
+  if (acao==="compartilhar"){ return compartilhar(it) }
   const ops = {
+    postei:[{postado_manual:new Date().toISOString()},"Postado à mão pelo dono","Marcado como postado."],
     aprovar:[{aprovado:true, recusado:undefined},"Aprovado pelo app","Aprovado. Vai sair no horário."],
     recusar:[{aprovado:false, recusado:true},"Recusado pelo app","Recusado. Não vai ser publicado."],
     desfazer:[{aprovado:false, recusado:undefined},"Voltou para aprovação","Voltou para Para aprovar."],
@@ -485,6 +493,18 @@ function desenharResultados(){
   L.querySelectorAll("[data-per]").forEach(b=>b.onclick=()=>{periodo=b.dataset.per; desenharResultados()});
   hidratarMidia(L);
   ligarDicas(L);
+}
+
+
+async function compartilhar(it){
+  const a = it.dados.arquivos[0], caminho=`${it.pasta}/${it.nome}/${a}`;
+  try{
+    const url = await urlMidia(caminho), blob = await (await fetch(url)).blob();
+    const arq = new File([blob], `jn-${it.nome}.jpg`, {type: blob.type || "image/jpeg"});
+    if (navigator.canShare && navigator.canShare({files:[arq]})) { await navigator.share({files:[arq]}); return }
+    const l=document.createElement("a"); l.href=url; l.download=arq.name; document.body.appendChild(l); l.click(); l.remove();
+    toast("Imagem baixada. Abra o Instagram e poste como story.");
+  }catch(e){ if(e.name!=="AbortError") toast("Não consegui abrir a imagem. Tente de novo.") }
 }
 
 function montarAtalhos(){
