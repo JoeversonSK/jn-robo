@@ -293,7 +293,9 @@ function cartao(it){
   const erro = d.ultimo_erro && st!=="publicado" ? `<div class="aviso">Último erro ao publicar: ${esc(d.ultimo_erro)}</div>` : "";
   let rodape="";
   if (st==="pendente") rodape=`<div class="acoes"><button class="btn btn-nao" data-acao="recusar">Recusar</button><button class="btn btn-ok" data-acao="aprovar">Aprovar</button></div>`;
-  else if (st==="manual") rodape=`<div class="aviso-manual"><b>✋ Você posta este story</b>No horário, toque em <b>Compartilhar</b>, escolha o Instagram (Story) e coloque a <b>caixinha de perguntas</b> no espaço livre da arte. Depois toque em <b>Já postei</b>.</div>
+  else if (st==="manual") rodape=(d.tipo==="reel"
+    ? `<div class="aviso-manual"><b>✋ Você posta este Reel</b>No horário, toque em <b>Compartilhar</b> (a legenda já vai copiada), escolha o Instagram (Reels), toque em <b>Áudio</b> e escolha um <b>áudio em alta</b> (com a seta ↗). Em <b>Volume</b>, deixe a <b>voz alta</b> e o <b>áudio em alta baixinho</b> (uns 10–20%). Cole a legenda e publique. Depois toque em <b>Já postei</b>.</div>`
+    : `<div class="aviso-manual"><b>✋ Você posta este story</b>No horário, toque em <b>Compartilhar</b>, escolha o Instagram (Story) e coloque a <b>caixinha de perguntas</b> no espaço livre da arte. Depois toque em <b>Já postei</b>.</div>`) + `
     <div class="acoes"><button class="btn btn-sec" data-acao="compartilhar">Compartilhar</button><button class="btn btn-ok" data-acao="postei">Já postei</button></div>
     <div class="status"><button data-acao="desfazer">Voltar para aprovação</button></div>`;
   else if (st==="programado") rodape=`<div class="status ok">✓ Aprovado · sai ${falta(d.publicar_em)}<button data-acao="desfazer">Desfazer</button></div>`;
@@ -498,12 +500,15 @@ function desenharResultados(){
 
 async function compartilhar(it){
   const a = it.dados.arquivos[0], caminho=`${it.pasta}/${it.nome}/${a}`;
+  // copia a legenda ANTES de baixar (o iPhone só deixa copiar logo após o toque)
+  if (it.dados.legenda && it.dados.tipo!=="story") { navigator.clipboard?.writeText(it.dados.legenda).then(()=>toast("Legenda copiada."),()=>{}) }
   try{
     const url = await urlMidia(caminho), blob = await (await fetch(url)).blob();
-    const arq = new File([blob], `jn-${it.nome}.jpg`, {type: blob.type || "image/jpeg"});
+    const video = a.toLowerCase().endsWith(".mp4");
+    const arq = new File([blob], `jn-${it.nome}.${video?"mp4":"jpg"}`, {type: video ? "video/mp4" : (blob.type || "image/jpeg")});
     if (navigator.canShare && navigator.canShare({files:[arq]})) { await navigator.share({files:[arq]}); return }
     const l=document.createElement("a"); l.href=url; l.download=arq.name; document.body.appendChild(l); l.click(); l.remove();
-    toast("Imagem baixada. Abra o Instagram e poste como story.");
+    toast(video ? "Vídeo baixado. Abra o Instagram e poste como Reel." : "Imagem baixada. Abra o Instagram e poste como story.");
   }catch(e){ if(e.name!=="AbortError") toast("Não consegui abrir a imagem. Tente de novo.") }
 }
 

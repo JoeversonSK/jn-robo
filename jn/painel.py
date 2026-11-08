@@ -9,7 +9,7 @@ ICONES = {
     "publicado": "✅ publicado",
     "falhou": "🔴 falhou",
     "recusado": "⛔ recusado",
-    "manual": "✋ você posta (caixinha/enquete)",
+    "manual": "✋ você posta (caixinha, enquete ou Reel com áudio em alta)",
 }
 
 

@@ -9,7 +9,7 @@ Cada post é uma pasta dentro de `conteudo/` com um `post.json`:
   "arquivos": ["arte.jpg"],          # na ordem; reel = [video.mp4] (+ "capa" opcional)
   "capa": "capa.jpg",                # opcional, só para reel
   "aprovado": false,                 # o dono muda para true para liberar
-  "manual": true                     # opcional: story com sticker (caixinha/enquete) que o dono posta à mão
+  "manual": true                     # opcional: o dono posta à mão (story com caixinha/enquete; Reel com áudio em alta do Instagram)
 }
 
 Depois de publicado, a pasta vai para `publicado/` com `media_id` e `publicado_em`.
