@@ -1,0 +1,42 @@
+name: Testar conexão
+
+on:
+  workflow_dispatch:   # não publica nada
+
+permissions:
+  contents: read
+
+jobs:
+  testar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: JoeversonSK/jn-marketing
+          token: ${{ secrets.DADOS_TOKEN }}
+          path: dados
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Instagram (token e conta)
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          MIDIA_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/midia
+          JN_DADOS: ${{ github.workspace }}/dados
+          PYTHONPATH: ${{ github.workspace }}
+          GH_TOKEN: ${{ github.token }}
+        run: python -m jn.verificar
+      - name: Repositório privado de dados
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          MIDIA_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/midia
+          JN_DADOS: ${{ github.workspace }}/dados
+          PYTHONPATH: ${{ github.workspace }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Posts na fila: $(ls dados/conteudo | wc -l) · publicados: $(ls dados/publicado 2>/dev/null | wc -l)"
+          git -C dados push --dry-run origin HEAD:main && echo "Escrita no repositório de dados: OK"

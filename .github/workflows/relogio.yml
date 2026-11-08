@@ -1,0 +1,55 @@
+name: Relógio da fila
+
+# Confere a fila a cada 5 minutos por ~5h40 e depois se religa sozinho.
+# Os dados ficam no repositório PRIVADO jn-marketing (lido com o segredo DADOS_TOKEN).
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "7 */3 * * *"   # reserva: religa o relógio se ele tiver parado
+
+permissions:
+  contents: write
+  actions: write
+  pages: write
+
+concurrency:
+  group: relogio
+  cancel-in-progress: false
+
+jobs:
+  relogio:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: JoeversonSK/jn-marketing
+          token: ${{ secrets.DADOS_TOKEN }}
+          path: dados
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Conferir a fila a cada 5 minutos
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          MIDIA_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/midia
+          JN_DADOS: ${{ github.workspace }}/dados
+          PYTHONPATH: ${{ github.workspace }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          fim=$(( $(date +%s) + 340*60 ))
+          volta=0
+          while [ "$(date +%s)" -lt "$fim" ]; do
+            bash .github/scripts/ciclo.sh
+            if [ $((volta % 12)) -eq 0 ]; then python -m jn.metricas && bash .github/scripts/salvar_fila.sh || true; fi
+            volta=$((volta + 1))
+            sleep 300
+          done
+      - name: Religar o relógio
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run relogio.yml --repo "$GITHUB_REPOSITORY" --ref main

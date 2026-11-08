@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>JN Higienização · WhatsApp</title>
+<meta name="robots" content="noindex">
+<style>
+  html,body{margin:0;height:100%;background:#0B1650;color:#fff;font:17px/1.4 system-ui,-apple-system,"Segoe UI",sans-serif}
+  main{min-height:100%;display:grid;place-items:center;text-align:center;padding:24px;box-sizing:border-box}
+  img{width:96px;height:96px;border-radius:50%;border:3px solid #fff}
+  a{display:inline-block;margin-top:18px;padding:14px 22px;border-radius:14px;background:#D6F84C;color:#0B1650;font-weight:700;text-decoration:none}
+  p{color:#B9C4EA;margin:10px 0 0}
+</style>
+</head>
+<body>
+<main>
+  <div>
+    <img src="../app/logo.png" alt="JN Higienização">
+    <p>Abrindo o WhatsApp da JN Higienização…</p>
+    <a id="ir" href="#">Abrir o WhatsApp</a>
+  </div>
+</main>
+<script>
+  // A mensagem é montada aqui (codificada uma única vez), para nenhum app intermediário estragar o texto.
+  const numero = "5588921008263";
+  const texto = "Olá! Vi o perfil da JN Higienização no Instagram e quero um orçamento.";
+  const url = "https://wa.me/" + numero;
+  document.getElementById("ir").href = url;
+  location.replace(url);
+</script>
+</body>
+</html>

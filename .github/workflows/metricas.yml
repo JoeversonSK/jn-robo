@@ -1,0 +1,38 @@
+name: Coletar métricas
+
+on:
+  workflow_dispatch:
+    inputs:
+      diagnostico:
+        description: "Mostrar métricas recusadas pela Meta"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: JoeversonSK/jn-marketing
+          token: ${{ secrets.DADOS_TOKEN }}
+          path: dados
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Coletar e salvar
+        env:
+          IG_ACCESS_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          MIDIA_BASE_URL: https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/midia
+          JN_DADOS: ${{ github.workspace }}/dados
+          PYTHONPATH: ${{ github.workspace }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python -m jn.metricas ${{ inputs.diagnostico && '--diagnostico' || '' }}
+          bash .github/scripts/salvar_fila.sh
