@@ -37,6 +37,13 @@ img.selo{object-fit:cover;background:none;border:2px solid #fff}
 .aba{flex:1;padding:11px 2px 13px;font-weight:600;font-size:13.5px;white-space:nowrap;color:#AEB9E2;border-bottom:3px solid transparent}
 .aba[aria-selected=true]{color:#fff;border-color:var(--agua)}
 .aba .n[hidden]{display:none}
+.filtros{display:flex;gap:6px;padding:12px 14px 2px;overflow-x:auto;scrollbar-width:none;max-width:520px;margin:0 auto}
+.filtros[hidden]{display:none}
+.filtros::-webkit-scrollbar{display:none}
+.filtro{flex:1 1 0;min-width:0;justify-content:center;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;padding:8px 4px;border-radius:999px;border:1px solid var(--linha);background:#fff;color:var(--noite);font-weight:600;font-size:13.5px}
+.filtro[aria-pressed=true]{background:var(--noite);color:#fff;border-color:var(--noite)}
+.filtro .c{font-size:12px;opacity:.7}
+.filtro svg{width:15px;height:15px;flex:none}
 .aba .n{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:10px;background:var(--agua);color:var(--noite);font-size:12px;line-height:20px}
 main{max-width:520px;margin:0 auto;padding:18px 14px calc(120px + var(--safe-b))}
 .vazio{text-align:center;padding:60px 18px;color:var(--suave)}
@@ -154,6 +161,12 @@ dialog::backdrop{background:rgba(11,22,80,.45)}
   </nav>
 </header>
 
+<div class="filtros" id="filtros" role="group" aria-label="Filtrar por tipo">
+  <button class="filtro" data-f="todos" aria-pressed="true">Todos <span class="c"></span></button>
+  <button class="filtro" data-f="story" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" stroke-dasharray="4 2.5"/><circle cx="12" cy="12" r="4"/></svg>Stories <span class="c"></span></button>
+  <button class="filtro" data-f="reel" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="M3 8h18M8 3l3 5M14 3l3 5"/><path d="M10 11.5v5l4.5-2.5z" fill="currentColor" stroke="none"/></svg>Reels <span class="c"></span></button>
+  <button class="filtro" data-f="post" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>Posts <span class="c"></span></button>
+</div>
 <main id="lista"><div class="carregando">Carregando…</div></main>
 
 <div class="barra" id="barra" hidden><button class="btn btn-ok" id="aprovar-tudo">Aprovar todos</button></div>
@@ -210,6 +223,8 @@ function hidratarMidia(raiz){
 }
 const API = `https://api.github.com/repos/${REPO}/contents/`;
 const TIPOS = {post:"Post", carrossel:"Carrossel", reel:"Reel", story:"Story"};
+let filtro = (()=>{ try{ return localStorage.getItem("jn-filtro")||"todos" }catch(_){ return "todos" } })();
+const grupo = t => t==="story" ? "story" : t==="reel" ? "reel" : "post";   // post e carrossel ficam em "Posts"
 let aba = "pendente", itens = [], ocupado = false, metricas = null, periodo = "7d";
 
 const $ = s => document.querySelector(s);
@@ -313,6 +328,7 @@ function cartao(it){
 const esc = s => String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
 function desenhar(){
+  $("#filtros").hidden = aba==="resultados";
   if (aba==="resultados") { const n=$("#n-pend"); const p=itens.filter(i=>estado(i)==="pendente").length; n.hidden=!p; n.textContent=p; $("#barra").hidden=true; return desenharResultados() }
   const pend = itens.filter(i=>estado(i)==="pendente");
   const n=$("#n-pend"); n.hidden=!pend.length; n.textContent=pend.length;
@@ -321,11 +337,18 @@ function desenhar(){
   else if (aba==="programado") vis=itens.filter(i=>["programado","manual","recusado","falhou"].includes(estado(i)));
   else vis=itens.filter(i=>estado(i)==="publicado").reverse();
   vis.sort((a,b)=>aba==="publicado"?0:a.dados.publicar_em.localeCompare(b.dados.publicar_em));
+  const conta = {todos: vis.length, story:0, reel:0, post:0}; vis.forEach(i=>conta[grupo(i.dados.tipo)]++);
+  document.querySelectorAll(".filtro").forEach(b=>{ b.setAttribute("aria-pressed", b.dataset.f===filtro); b.querySelector(".c").textContent = conta[b.dataset.f] });
+  if (filtro!=="todos") vis = vis.filter(i=>grupo(i.dados.tipo)===filtro);
+  const pendVis = vis.filter(i=>estado(i)==="pendente");
+  const nomeF = {todos:"todos", story:"todos os stories", reel:"todos os Reels", post:"todos os posts"}[filtro];
+  $("#aprovar-tudo").textContent = "Aprovar " + nomeF;
   const vazio = {pendente:["Tudo aprovado","Quando tiver post novo, ele aparece aqui."],
                  programado:["Nada programado","Aprove posts na aba Aprovar."],
                  publicado:["Nada publicado ainda","Os posts publicados aparecem aqui."]}[aba];
+  if (filtro!=="todos" && !vis.length) vazio[1] = "Nada deste tipo aqui. Toque em Todos para ver o resto.";
   $("#lista").innerHTML = vis.length ? vis.map(cartao).join("") : `<div class="vazio"><strong>${vazio[0]}</strong>${vazio[1]}</div>`;
-  $("#barra").hidden = !(aba==="pendente" && pend.length>1);
+  $("#barra").hidden = !(aba==="pendente" && pendVis.length>1);
   hidratarMidia($("#lista"));
   document.querySelectorAll(".midia").forEach(m=>m.addEventListener("scroll",()=>{
     const i=Math.round(m.scrollLeft/m.clientWidth), p=m.nextElementSibling;
@@ -375,13 +398,17 @@ $("#lista").addEventListener("click", e=>{
   const b=e.target.closest("[data-acao]"); if(!b||!b.dataset.acao) return;
   agir(b.dataset.acao, b.closest(".post"));
 });
+document.querySelectorAll(".filtro").forEach(b=>b.addEventListener("click",()=>{
+  filtro=b.dataset.f; try{ localStorage.setItem("jn-filtro",filtro) }catch(_){}
+  desenhar(); scrollTo(0,0);
+}));
 document.querySelectorAll(".aba").forEach(b=>b.addEventListener("click",()=>{
   aba=b.dataset.aba; document.querySelectorAll(".aba").forEach(x=>x.setAttribute("aria-selected",x===b)); desenhar(); scrollTo(0,0);
 }));
 $("#aprovar-tudo").addEventListener("click", async ()=>{
-  const pend=itens.filter(i=>estado(i)==="pendente");
+  const pend=itens.filter(i=>estado(i)==="pendente" && (filtro==="todos" || grupo(i.dados.tipo)===filtro));
   await executar(null, async()=>{ for (const it of pend) await salvar(it,{aprovado:true,recusado:undefined},"Aprovado pelo app") },
-    `${pend.length} posts aprovados.`);
+    `${pend.length} aprovados.`);
 });
 $("#d-legenda").addEventListener("close", async e=>{
   const d=e.target; if (d.returnValue!=="ok") return;
