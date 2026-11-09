@@ -198,6 +198,7 @@ def test_raiz_dos_dados_vem_do_ambiente(tmp_path, monkeypatch):
 
 
 def test_tambem_publica_no_facebook(raiz, monkeypatch):
+    monkeypatch.setenv("FACEBOOK", "1")
     from jn import facebook
     criar(raiz, "foto")
     criar(raiz, "car", tipo="carrossel", arquivos=("01.jpg", "02.jpg"))
@@ -218,6 +219,7 @@ def test_tambem_publica_no_facebook(raiz, monkeypatch):
 
 
 def test_falha_no_facebook_nao_afeta_instagram(raiz, monkeypatch):
+    monkeypatch.setenv("FACEBOOK", "1")
     from jn import facebook
     criar(raiz, "foto")
     usar_fake(monkeypatch, FakeHTTP())
@@ -242,3 +244,15 @@ def test_story_manual_nunca_e_publicado_pelo_robo(raiz, monkeypatch, tmp_path):
     it.dados["postado_manual"] = "2026-11-10T19:02:00-03:00"
     it.salvar()
     assert fila.carregar()[0].status == "publicado"
+
+
+def test_facebook_desligado_por_padrao(raiz, monkeypatch):
+    from jn import facebook
+    monkeypatch.delenv("FACEBOOK", raising=False)
+    chamou = []
+    monkeypatch.setattr(facebook.Facebook, "__init__", lambda *a, **k: chamou.append(1))
+    criar(raiz, "so-ig")
+    usar_fake(monkeypatch, FakeHTTP())
+    assert publicar.main([]) == 0
+    d = json.loads((raiz / "publicado" / "so-ig" / "post.json").read_text())
+    assert d["media_id"] == "MEDIA123" and "facebook_id" not in d and not chamou

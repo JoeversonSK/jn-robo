@@ -69,4 +69,6 @@ def publicar_no_facebook(fb: Facebook, tipo: str, urls: list[str], legenda: str,
 
 
 def ativo() -> bool:
-    return os.environ.get("FACEBOOK", "1") != "0"
+    # DESLIGADO desde 09/11/2026 a pedido do dono (a conta tomou restrição): só Instagram.
+    # Para religar no futuro, defina a variável FACEBOOK=1 nos fluxos.
+    return os.environ.get("FACEBOOK", "0") == "1"
