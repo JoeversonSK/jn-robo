@@ -25,6 +25,8 @@ BRT = fila._brt()
 METRICAS_CONTA = ["reach", "views", "profile_views", "accounts_engaged", "total_interactions",
                   "profile_links_taps", "follows_and_unfollows"]
 METRICAS_MIDIA = ["reach", "views", "saved", "shares", "total_interactions"]
+# Só para Reels: retenção (ms). Ajuda a saber se as pessoas assistem até o fim.
+METRICAS_REEL = ["ig_reels_avg_watch_time", "ig_reels_video_view_total_time"]
 METRICAS_STORY = ["reach", "views", "replies", "navigation"]
 
 # Melhores horários de referência (Buffer 2026, 9,6 mi de posts) enquanto não há dados próprios
@@ -71,9 +73,9 @@ def seguidores_online(ig):
     return {h: round(soma[h] / n[h], 1) for h in range(24) if n[h]}
 
 
-def insights_midia(ig, mid, story=False):
+def insights_midia(ig, mid, story=False, reel=False):
     out = {}
-    for m in (METRICAS_STORY if story else METRICAS_MIDIA):
+    for m in (METRICAS_STORY if story else METRICAS_MIDIA + (METRICAS_REEL if reel else [])):
         v, _ = _tentar(lambda: ig.get(f"{mid}/insights", metric=m)["data"][0]["values"][0]["value"])
         out[m] = v
     return out
@@ -111,7 +113,7 @@ def coletar(ig: Instagram, diag=False) -> dict:
                                "thumbnail_url,media_url,like_count,comments_count")
     posts = []
     for m in (midias or {}).get("data", []):
-        ins = insights_midia(ig, m["id"])
+        ins = insights_midia(ig, m["id"], reel=m.get("media_product_type") == "REELS")
         ts = datetime.fromisoformat(m["timestamp"].replace("+0000", "+00:00")).astimezone(BRT)
         posts.append({
             "id": m["id"], "tipo": (m.get("media_product_type") or m.get("media_type") or "").lower(),
