@@ -17,6 +17,7 @@ Depois de publicado, a pasta vai para `publicado/` com `media_id` e `publicado_e
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -30,6 +31,7 @@ RAIZ = Path(os.environ.get("JN_DADOS") or Path(__file__).resolve().parent.parent
 CONTEUDO = RAIZ / "conteudo"
 PUBLICADO = RAIZ / "publicado"
 TIPOS = {"post", "carrossel", "reel", "story"}
+MAX_HASHTAGS = 5  # limite do Instagram
 MAX_TENTATIVAS = 3
 
 
@@ -79,6 +81,9 @@ class Item:
             self.quando
         except Exception:
             erros.append("publicar_em inválido (formato: 2026-11-09T12:00:00-03:00)")
+        n_tags = len(re.findall(r"#\w+", d.get("legenda") or ""))
+        if n_tags > MAX_HASHTAGS:
+            erros.append(f"legenda com {n_tags} hashtags (o Instagram aceita no máximo {MAX_HASHTAGS})")
         arqs = d.get("arquivos") or []
         if not arqs:
             erros.append("nenhum arquivo em 'arquivos'")

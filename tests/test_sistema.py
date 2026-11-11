@@ -256,3 +256,11 @@ def test_facebook_desligado_por_padrao(raiz, monkeypatch):
     assert publicar.main([]) == 0
     d = json.loads((raiz / "publicado" / "so-ig" / "post.json").read_text())
     assert d["media_id"] == "MEDIA123" and "facebook_id" not in d and not chamou
+
+
+def test_mais_de_5_hashtags_nao_publica(raiz):
+    it = criar(raiz, "tags")
+    it.dados["legenda"] = "Oi #a #b #c #d #e #f"
+    assert any("hashtags" in e for e in it.validar())
+    it.dados["legenda"] = "Oi #a #b #c #d #e"
+    assert not any("hashtags" in e for e in it.validar())
