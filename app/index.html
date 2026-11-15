@@ -39,6 +39,10 @@ img.selo{object-fit:cover;background:none;border:2px solid #fff}
 .aba .n[hidden]{display:none}
 .filtros{display:flex;gap:6px;padding:12px 14px 2px;overflow-x:auto;scrollbar-width:none;max-width:520px;margin:0 auto}
 .filtros[hidden]{display:none}
+.recusados{margin:18px 0 8px}
+.recusados>summary{list-style:none;cursor:pointer;padding:14px 16px;border-radius:14px;background:#fff;border:1px dashed var(--linha);color:#6b7280;font-weight:600;font-size:14px;text-align:center}
+.recusados>summary::-webkit-details-marker{display:none}
+.recusados[open]>summary{margin-bottom:12px}
 .filtros::-webkit-scrollbar{display:none}
 .filtro{flex:1 1 0;min-width:0;justify-content:center;white-space:nowrap;display:inline-flex;align-items:center;gap:4px;padding:8px 4px;border-radius:999px;border:1px solid var(--linha);background:#fff;color:var(--noite);font-weight:600;font-size:13.5px}
 .filtro[aria-pressed=true]{background:var(--noite);color:#fff;border-color:var(--noite)}
@@ -225,6 +229,7 @@ const API = `https://api.github.com/repos/${REPO}/contents/`;
 const TIPOS = {post:"Post", carrossel:"Carrossel", reel:"Reel", story:"Story"};
 let filtro = (()=>{ try{ return localStorage.getItem("jn-filtro")||"todos" }catch(_){ return "todos" } })();
 const grupo = t => t==="story" ? "story" : t==="reel" ? "reel" : "post";   // post e carrossel ficam em "Posts"
+let verRecusados = false;
 let aba = "pendente", itens = [], ocupado = false, metricas = null, periodo = "7d";
 
 const $ = s => document.querySelector(s);
@@ -334,12 +339,15 @@ function desenhar(){
   const n=$("#n-pend"); n.hidden=!pend.length; n.textContent=pend.length;
   let vis;
   if (aba==="pendente") vis=pend;
-  else if (aba==="programado") vis=itens.filter(i=>["programado","manual","recusado","falhou"].includes(estado(i)));
+  else if (aba==="programado") vis=itens.filter(i=>["programado","manual","falhou"].includes(estado(i)));
   else vis=itens.filter(i=>estado(i)==="publicado").reverse();
   vis.sort((a,b)=>aba==="publicado"?0:a.dados.publicar_em.localeCompare(b.dados.publicar_em));
   const conta = {todos: vis.length, story:0, reel:0, post:0}; vis.forEach(i=>conta[grupo(i.dados.tipo)]++);
   document.querySelectorAll(".filtro").forEach(b=>{ b.setAttribute("aria-pressed", b.dataset.f===filtro); b.querySelector(".c").textContent = conta[b.dataset.f] });
   if (filtro!=="todos") vis = vis.filter(i=>grupo(i.dados.tipo)===filtro);
+  // recusados ficam fora da lista, num bloco recolhido no fim da aba Programados
+  const recus = aba==="programado" ? itens.filter(i=>estado(i)==="recusado" && (filtro==="todos" || grupo(i.dados.tipo)===filtro))
+                                     .sort((a,b)=>a.dados.publicar_em.localeCompare(b.dados.publicar_em)) : [];
   const pendVis = vis.filter(i=>estado(i)==="pendente");
   const nomeF = {todos:"todos", story:"todos os stories", reel:"todos os Reels", post:"todos os posts"}[filtro];
   $("#aprovar-tudo").textContent = "Aprovar " + nomeF;
@@ -347,7 +355,9 @@ function desenhar(){
                  programado:["Nada programado","Aprove posts na aba Aprovar."],
                  publicado:["Nada publicado ainda","Os posts publicados aparecem aqui."]}[aba];
   if (filtro!=="todos" && !vis.length) vazio[1] = "Nada deste tipo aqui. Toque em Todos para ver o resto.";
-  $("#lista").innerHTML = vis.length ? vis.map(cartao).join("") : `<div class="vazio"><strong>${vazio[0]}</strong>${vazio[1]}</div>`;
+  $("#lista").innerHTML = (vis.length ? vis.map(cartao).join("") : `<div class="vazio"><strong>${vazio[0]}</strong>${vazio[1]}</div>`)
+    + (recus.length ? `<details class="recusados"${verRecusados?" open":""}><summary>Recusados (${recus.length}) · não vão ser publicados</summary>${recus.map(cartao).join("")}</details>` : "");
+  const det=$("#lista .recusados"); if (det) det.addEventListener("toggle",()=>{ verRecusados=det.open; if (det.open) hidratarMidia(det) });
   $("#barra").hidden = !(aba==="pendente" && pendVis.length>1);
   hidratarMidia($("#lista"));
   document.querySelectorAll(".midia").forEach(m=>m.addEventListener("scroll",()=>{
